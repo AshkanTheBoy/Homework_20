@@ -2,13 +2,10 @@ public class Guardsmen {
     public static int shiftCount = 0;
 
     public static void main(String[] args) {
-        Guard guard11 = new Guard();
-        Guard guard22 = new Guard();
-        Thread guard1 = new Thread(guard11, "Guard 1");
-        Thread guard2 = new Thread(guard22, "Guard 2");
+        Thread guard1 = new Thread(new Guard(), "Guard 1");
+        Thread guard2 = new Thread(new Guard(), "Guard 2");
         guard1.start();
         guard2.start();
-
         try {
             guard1.join();
             guard2.join();
@@ -31,7 +28,7 @@ class Guard implements Runnable {
     public void run() {
         synchronized (monitor) {
             this.startClock();
-            while (Guardsmen.shiftCount<3) {
+            while (Guardsmen.shiftCount<6) {
                 checkTime();
                 if (timeOnShift>12&&!isWaiting){
                     changeColor();
@@ -110,15 +107,15 @@ class Watch implements Runnable {
         }
     }
 
-    public void startClock() {
+    protected void startClock() {
         this.clock.start();
     }
 
-    public int getTime() {
+    protected int getTime() {
         return this.time;
     }
 
-    public void stopClock(){
+    protected void stopClock(){
         this.clock.interrupt();
     }
 }
