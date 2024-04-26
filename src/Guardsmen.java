@@ -1,3 +1,4 @@
+import java.time.LocalTime;
 public class Guardsmen {
     public static int shiftCount = 0;
 
@@ -12,47 +13,37 @@ public class Guardsmen {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
         System.out.println("Shifts completed: "+shiftCount);
     }
 }
 
 class Guard implements Runnable {
-    private static Object monitor = new Object();
-    private static boolean isWaiting = false;
-    private int timeOnShift = 0;
+    private static Object monitor = new Object(); //объект синхронизации
+    private static LocalTime shiftStartTime; //время, на котором "принял" пост
+    private static volatile LocalTime timeOnShift; //текущее время
     private Watch watch = new Watch();
-    private static String guardColor = "\u001B[32m";
+    private static String guardColor = "\u001B[32m"; //цвет текста для разных "стражей"
 
     @Override
     public void run() {
         synchronized (monitor) {
-            this.startClock();
-            while (Guardsmen.shiftCount<6) {
-                checkTime();
-                if (timeOnShift>12&&!isWaiting){
-                    changeColor();
-                    isWaiting = true;
-                    Guardsmen.shiftCount++;
-                    monitor.notify();
-                    try {
-                        monitor.wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                } else if (timeOnShift>12&&isWaiting){
-                    resetColor();
-                    isWaiting = false;
-                    Guardsmen.shiftCount++;
-                    monitor.notify();
-                    try {
-                        monitor.wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                } else {
-                    System.out.printf("%s%s | guarding | time on the clock: %d\n",
-                            guardColor, Thread.currentThread().getName(), this.timeOnShift);
+            this.startClock(); //активируем часы
+            shiftStartTime = LocalTime.now(); //помечаем время старта
+            while (Guardsmen.shiftCount<4) { //длительность цикла в "сменах"
+                checkTime(); //обновить текущее время
+                int difference = Math.abs(timeOnShift.toSecondOfDay()-shiftStartTime.toSecondOfDay());
+
+                //если разница между стартом и текущим временем в секундах больше 3
+                if (difference>=3){
+                    changeGuard(); //меняем "стража"
+                    /*
+                    проблема: getSecond() берется в целых числах, поэтому на стыке секунд
+                    при условии "3.9с. - 6с." пройдет так же 3 "секунды", а не 2.1, как положено.
+                    Частично решается увеличением диапазона до "секунда дня", но на стыке смены суток проблема вернется
+                     */
+                } else { //печатаем сообщение и спим 200 мс
+                    System.out.printf("%s%s | guarding | time on the clock: %s\n",
+                            guardColor, Thread.currentThread().getName(), timeOnShift.getSecond());
                     try {
                         Thread.sleep(200);
                     } catch (InterruptedException e) {
@@ -60,63 +51,80 @@ class Guard implements Runnable {
                     }
                 }
             }
-            monitor.notifyAll();
-            System.out.println("\u001B[0m"+Thread.currentThread().getName()+"'s shift has ended");
-            this.stopClock();
+            monitor.notifyAll(); //оповещаем всех
+            resetColor(); //меняем цвет текста на обычный
+            System.out.println(Thread.currentThread().getName()+"'s shift has ended");
+            this.stopClock(); //останавливаем часы
+
         }
     }
 
-    private void checkTime() {
-        this.timeOnShift = this.watch.getTime();
+    private synchronized void checkTime() {
+        timeOnShift = this.watch.getTime(); //смотрим на часы и обновляем время на смене
     }
 
     private void startClock() {
-        this.watch.startClock();
+        this.watch.startClock(); //запускаем часы
     }
 
     public void stopClock(){
-        this.watch.stopClock();
+        this.watch.stopClock(); //останавливаем часы
     }
 
     private void changeColor() {
-        guardColor = "\u001B[33m";
+        if (guardColor.equals("\u001B[32m")){ //если зеленый "страж" - меняем на желтого
+            guardColor = "\u001B[33m"; //желтый текст
+        } else { // наоборот - в зеленый
+            guardColor = "\u001B[32m"; //зеленый текст
+        }
     }
 
     private void resetColor() {
-        guardColor = "\u001B[32m";
+        System.out.print("\u001B[0m"); //текст в дефолтный цвет
+    }
+
+    private void changeGuard(){
+        System.out.println("CHANGING SHIFTS");
+        changeColor(); //меняем цвет "стража"
+        Guardsmen.shiftCount++; //кол-во смен +1
+        shiftStartTime = LocalTime.now(); //обновляем время начала смены
+        monitor.notify(); //освобождаем монитор
+        try {
+            monitor.wait(); //ждем
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
 
 class Watch implements Runnable {
-    private volatile int time = 0;
+    private LocalTime current; //текущее время
     private Thread clock = new Thread(this);
 
     @Override
     public synchronized void run() {
         while (true) {
-            while (this.time < 24) {
-                this.time++;
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    System.out.println("Clock is stopped");
-                    return;
-                }
+            current = LocalTime.now(); //обновляем время
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                System.out.println("Clock stopped");
+                return;
             }
-            this.time = 0;
         }
     }
 
     protected void startClock() {
         this.clock.start();
+        this.current = LocalTime.now(); //сразу записываем, чтобы успеть загрузить данные
     }
 
-    protected int getTime() {
-        return this.time;
+    protected LocalTime getTime() {
+        return this.current; //возвращаем время на часах
     }
 
     protected void stopClock(){
-        this.clock.interrupt();
+        this.clock.interrupt(); //останавливаем часы
     }
 }
 
