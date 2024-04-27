@@ -1,3 +1,5 @@
+package guards1;
+
 import java.time.LocalTime;
 public class Guardsmen {
     public static int shiftCount = 0;
@@ -20,7 +22,7 @@ public class Guardsmen {
 class Guard implements Runnable {
     private static Object monitor = new Object(); //объект синхронизации
     private static LocalTime shiftStartTime; //время, на котором "принял" пост
-    private static volatile LocalTime timeOnShift; //текущее время
+    private static LocalTime timeOnShift; //текущее время
     private Watch watch = new Watch();
     private static String guardColor = "\u001B[32m"; //цвет текста для разных "стражей"
 
@@ -30,8 +32,19 @@ class Guard implements Runnable {
             this.startClock(); //активируем часы
             shiftStartTime = LocalTime.now(); //помечаем время старта
             while (Guardsmen.shiftCount<4) { //длительность цикла в "сменах"
+                // стартовое в вещественное число
+                double realStartValue = shiftStartTime.toSecondOfDay()+(shiftStartTime.getNano()/1_000_000_000.);
+                //System.out.println(realStartValue);
+
                 checkTime(); //обновить текущее время
-                int difference = Math.abs(timeOnShift.toSecondOfDay()-shiftStartTime.toSecondOfDay());
+
+                // текущее время в вещественное число
+                double realCurrentValue = timeOnShift.toSecondOfDay()+(timeOnShift.getNano()/1_000_000_000.);
+                //System.out.println(realStartValue);
+
+                //разница между стартом и текущим временем
+                double difference = Math.abs(realCurrentValue-realStartValue);
+                System.out.printf("%.2f\n",difference);
 
                 //если разница между стартом и текущим временем в секундах больше 3
                 if (difference>=3){
@@ -40,6 +53,7 @@ class Guard implements Runnable {
                     проблема: getSecond() берется в целых числах, поэтому на стыке секунд
                     при условии "3.9с. - 6с." пройдет так же 3 "секунды", а не 2.1, как положено.
                     Частично решается увеличением диапазона до "секунда дня", но на стыке смены суток проблема вернется
+                    P.S. Вроде решил с помощью вещественных чисел и наносекунд
                      */
                 } else { //печатаем сообщение и спим 200 мс
                     System.out.printf("%s%s | guarding | time on the clock: %s\n",
