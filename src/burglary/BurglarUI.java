@@ -51,6 +51,9 @@ public class BurglarUI {
             @Override
             public void actionPerformed(ActionEvent e) {
                 new Thread(new Runnable(){
+                    //при нажатии на "ОК", текст окрашивается в зеленый, если ответ верен,
+                    //и в красный - если не верен.
+                    //Если ответ верен - устанавливаем статус выигрыша и заканчиваем игру
                     @Override
                     public void run() {
                         Instant start = Instant.now();
@@ -78,11 +81,24 @@ public class BurglarUI {
         restartButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                //Очищаем поле ответа и начинаем новую игру
                 ansText.setText("");
+                //кнопка работает только после завершения прошлой игры
                 if(Burglar.gameEnds){
                     Thread burglar = new Thread(new Burglar());
                     burglar.start();
                     TheBurglar.setTime(5);
+                }
+            }
+        });
+        delButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                //удаляем крайний символ, если поле не пустое
+                if (!ansText.getText().equals("")){
+                    StringBuilder str = new StringBuilder(ansText.getText());
+                    str.deleteCharAt(str.length()-1);
+                    ansText.setText(str.toString());
                 }
             }
         });
@@ -165,17 +181,6 @@ public class BurglarUI {
                 ansText.setText("");
             }
         });
-        delButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (!ansText.getText().equals("")){
-                    StringBuilder str = new StringBuilder(ansText.getText());
-                    str.deleteCharAt(str.length()-1);
-                    ansText.setText(str.toString());
-                }
-            }
-        });
-
         button0.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -187,9 +192,6 @@ public class BurglarUI {
 
     }
     public void setPassText(String text){
-        passText.setText(text);
-    }
-    public static JFrame getjFrame() {
-        return jFrame;
+        passText.setText(text); //метод для установки пароля в поле "пароль"
     }
 }
